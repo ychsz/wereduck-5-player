@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Wereduck · 5人局</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<!-- ===== Landing Screen ===== -->
+<div id="landing" class="screen">
+  <div class="landing-card">
+    <h1>🦆 Wereduck</h1>
+    <p class="subtitle">5人鹅鸭杀</p>
+    <button id="btn-create" class="btn btn-primary">创建房间</button>
+    <div class="divider-row"><span>或</span></div>
+    <div class="join-row">
+      <input id="input-join-code" class="input" placeholder="4位房间号" maxlength="4" autocomplete="off">
+      <button id="btn-join" class="btn btn-primary">加入房间</button>
+    </div>
+    <p id="landing-error" class="error-text"></p>
+  </div>
+</div>
+
+<!-- ===== Seat Selection Screen ===== -->
+<div id="seat-select" class="screen hidden">
+  <div class="seat-select-card">
+    <h2>房间 <span id="room-code-display" class="room-code"></span></h2>
+    <p class="hint">选择一个空座位并输入昵称：</p>
+    <div id="seat-grid-select" class="seat-grid"></div>
+    <div class="name-row">
+      <input id="input-name" class="input" placeholder="输入昵称" maxlength="10" autocomplete="off">
+    </div>
+    <button id="btn-sit" class="btn btn-primary">入座</button>
+    <p id="seat-error" class="error-text"></p>
+  </div>
+</div>
+
+<!-- ===== Game Screen ===== -->
+<div id="game" class="screen hidden">
+  <!-- Header -->
+  <div class="game-header">
+    <span id="phase-label" class="phase-label"></span>
+    <span id="day-label" class="day-label"></span>
+    <span id="room-label" class="room-label"></span>
+    <span id="timer" class="timer hidden"></span>
+  </div>
+
+  <!-- Role card -->
+  <div id="role-card" class="role-card hidden" onclick="toggleRoleCard()">
+    <div class="role-header">
+      <span id="role-name" class="role-name"></span>
+      <span id="role-faction" class="role-faction"></span>
+      <span id="role-expand-icon" class="expand-icon">▼</span>
+    </div>
+    <div id="role-desc" class="role-desc hidden"></div>
+    <div id="private-notes" class="private-notes"></div>
+  </div>
+
+  <!-- Seats -->
+  <div id="seat-grid-game" class="seat-grid-game" onclick="onSeatGridClick(event)"></div>
+
+  <!-- Night action panel -->
+  <div id="night-panel" class="action-panel hidden"></div>
+
+  <!-- Day speech panel -->
+  <div id="speech-panel" class="action-panel hidden"></div>
+
+  <!-- Vote panel -->
+  <div id="vote-panel" class="action-panel hidden"></div>
+
+  <!-- Chat -->
+  <div id="chat-area" class="chat-area"></div>
+  <div class="chat-input-row">
+    <input id="chat-input" class="input" placeholder="..." autocomplete="off" maxlength="500">
+    <button id="btn-send" class="btn-small">发送</button>
+  </div>
+</div>
+
+<!-- ===== Game Over Overlay ===== -->
+<div id="gameover-overlay" class="overlay hidden">
+  <div class="overlay-card">
+    <h2 id="go-title">游戏结束</h2>
+    <p id="go-reason" class="go-reason"></p>
+    <div id="go-seats" class="go-seats"></div>
+    <button id="btn-ready-again" class="btn btn-primary">准备（下一局）</button>
+  </div>
+</div>
+
+<!-- ===== Ready Overlay (pre-game) ===== -->
+<div id="ready-overlay" class="overlay hidden">
+  <div class="overlay-card">
+    <p id="ready-status" class="ready-status"></p>
+    <button id="btn-ready" class="btn btn-primary">准备</button>
+  </div>
+</div>
+
+<!-- ===== Search Drawer ===== -->
+<div id="search-drawer" class="drawer hidden">
+  <div class="drawer-header">
+    <input id="search-input" class="input" placeholder="搜索角色..." autocomplete="off">
+    <button id="btn-close-search" class="btn-small">✕</button>
+  </div>
+  <div id="search-results" class="drawer-body"></div>
+</div>
+
+<!-- ===== Mark Dialog ===== -->
+<div id="mark-dialog" class="dialog hidden">
+  <div class="dialog-card">
+    <h3>标记 <span id="mark-target-name"></span></h3>
+    <input id="mark-search" class="input" placeholder="搜索角色..." autocomplete="off">
+    <div id="mark-list" class="mark-list"></div>
+    <button id="btn-mark-clear" class="btn-small">清除标记</button>
+    <button id="btn-mark-close" class="btn-small">关闭</button>
+  </div>
+</div>
+
+<!-- ===== Guess Dialog ===== -->
+<div id="guess-dialog" class="dialog hidden">
+  <div class="dialog-card">
+    <h3 id="guess-title">猜身份</h3>
+    <p id="guess-hint" class="hint"></p>
+    <label>目标玩家</label>
+    <select id="guess-target" class="select"></select>
+    <label>猜测角色</label>
+    <input id="guess-role-search" class="input" placeholder="搜索角色..." autocomplete="off">
+    <div id="guess-role-list" class="mark-list"></div>
+    <button id="btn-guess-submit" class="btn btn-primary">确认猜测</button>
+    <p id="guess-result" class="error-text"></p>
+    <button id="btn-guess-close" class="btn-small">关闭</button>
+  </div>
+</div>
+
+<div id="floating-buttons">
+  <button id="btn-search" class="fab" title="角色搜索">📖</button>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

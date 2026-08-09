@@ -1,0 +1,194 @@
+[
+  {
+    "id": "great_goose",
+    "name": "大白鹅",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "刺客没法在猜测时猜测某位玩家是“大白鹅”。",
+    "search": "大白鹅 goose 鹅 刺客保护 保护"
+  },
+  {
+    "id": "sheriff",
+    "name": "警长",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。如果你杀死了鹅，你也会倒牌。",
+    "search": "警长 sheriff goose 鹅 相邻击杀 同归 杀鹅"
+  },
+  {
+    "id": "vigilante",
+    "name": "正义使者",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "你一局游戏只能开一刀。你可以在某个夜晚选择杀死任一名非己的与你相邻的存活玩家。",
+    "search": "正义使者 vigilante goose 鹅 相邻击杀 一刀 限一次"
+  },
+  {
+    "id": "engineer",
+    "name": "工程师",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "在夜晚开始时你可以选择“钻进管道”。",
+    "search": "工程师 engineer goose 鹅 钻进管道 管道"
+  },
+  {
+    "id": "detective",
+    "name": "侦探",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "在夜晚结束之前，你可以选择一名非己的存活玩家侦查他今夜是否杀过人。",
+    "search": "侦探 detective goose 鹅 侦查 查杀 杀过人"
+  },
+  {
+    "id": "tracker",
+    "name": "跟踪者",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "夜晚开始时，选择一名非己玩家跟踪。若该晚他出局、被鹈鹕吞食或“钻进管道”状态发生过改变，你将在夜晚结束时得知对应信息（包括凶手角色，如“被隐形鸭杀死”）。",
+    "search": "跟踪者 tracker goose 鹅 跟踪 出局 吞食 管道 凶手"
+  },
+  {
+    "id": "soldier",
+    "name": "士兵",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "从第二个夜晚开始每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。",
+    "search": "士兵 soldier goose 鹅 相邻击杀 第二夜"
+  },
+  {
+    "id": "lobbyist",
+    "name": "说客",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "每当你累计被投了两票，你将获得一次在夜晚杀死任一名非己的与你相邻的存活玩家的机会。你每晚最多杀一个人。在白天时你可以给自己投票。",
+    "search": "说客 lobbyist goose 鹅 累计被投 杀人机会 自投 票权"
+  },
+  {
+    "id": "survivalist",
+    "name": "生存主义者",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "当某一时刻场上只剩下2名存活玩家且你存活且鹈鹕、猎鹰、渡鸦出局时你直接获得胜利。",
+    "search": "生存主义者 survivalist goose 鹅 剩2人 鹈鹕 猎鹰 渡鸦 胜利"
+  },
+  {
+    "id": "mortician",
+    "name": "殡仪员",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "在夜晚结束之时你将知道今夜有哪些玩家出局（你不会认为鹈鹕肚子里或管道内的玩家出局），你可以选择一名已出局的玩家了解他的角色。",
+    "search": "殡仪员 mortician goose 鹅 出局名单 查角色 尸体"
+  },
+  {
+    "id": "duck",
+    "name": "鸭子",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "在夜晚开始时你可以选择“钻进管道”。每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。",
+    "search": "鸭子 duck duck 鸭 钻进管道 相邻击杀"
+  },
+  {
+    "id": "invisible_duck",
+    "name": "隐形鸭",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。若你在夜晚杀死了鹈鹕且鹈鹕肚子里有玩家，则该玩家知道鹈鹕是被隐形鸭杀死但不知道你是隐形鸭（只知道凶手角色）。",
+    "search": "隐形鸭 invisible_duck duck 鸭 相邻击杀 杀鹈鹕 释放肚子 隐藏身份"
+  },
+  {
+    "id": "assassin",
+    "name": "刺客",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "在夜晚开始时你可以选择“钻进管道”。每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。在每个白天轮麦阶段你可以选择猜测一次某个玩家的身份，若你猜对则该玩家被“刺杀”出局；否则你被“刺杀”出局。你不能猜测某位玩家是“大白鹅”。",
+    "search": "刺客 assassin duck 鸭 钻进管道 相邻击杀 猜身份 刺杀 大白鹅"
+  },
+  {
+    "id": "spy",
+    "name": "间谍",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "在夜晚开始时你可以选择“钻进管道”。每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。若某个白天你是唯一一位投票给某个玩家的玩家，你将在下一个白天得知他的角色。",
+    "search": "间谍 spy duck 鸭 钻进管道 相邻击杀 唯一投票 查角色"
+  },
+  {
+    "id": "sniper",
+    "name": "狙击手",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "每个夜晚你都可以（也可以不）杀死任一名非己的与你不相邻的存活玩家。只有当所有存活的非己玩家都与你相邻时，你才可以杀死与你相邻的存活玩家。",
+    "search": "狙击手 sniper duck 鸭 非相邻击杀 远程击杀"
+  },
+  {
+    "id": "cupid",
+    "name": "丘比特",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。如果你选择不杀人，那你可以使用一次“射箭”技能（一局只能用一次）：将2名非己的存活玩家指定为恋人，此后若一名玩家出局，则另一名玩家立即出局。两名恋人将会立刻知道彼此结为恋人。",
+    "search": "丘比特 cupid duck 鸭 相邻击杀 射箭 恋人 连环出局"
+  },
+  {
+    "id": "priest",
+    "name": "牧师",
+    "faction": "duck",
+    "faction_name": "鸭阵营",
+    "description": "每个夜晚你都可以（也可以不）杀死任一名非己的与你相邻的存活玩家。此外，你可以选择一名存活的非己玩家将他第二个白天时投票的权重翻倍。",
+    "search": "牧师 priest duck 鸭 相邻击杀 翻倍 投票权重"
+  },
+  {
+    "id": "dodo",
+    "name": "呆呆鸟",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "在白天时你可以给自己投票。当你被投票出局，你获胜。",
+    "search": "呆呆鸟 dodo neutral 中立 自投 被投出 胜利"
+  },
+  {
+    "id": "pigeon",
+    "name": "鸽子",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "在夜晚开始时你可以选择“钻进管道”。若你选择不这么做，则在夜晚开始时你可以永久感染任一名存活的非己玩家。你的感染将不会被任何除你之外的玩家知道。若某时刻所有不在管道中的存活非己玩家都已被感染，你获胜。",
+    "search": "鸽子 pigeon neutral 中立 钻进管道 感染 隐藏 胜利"
+  },
+  {
+    "id": "pelican",
+    "name": "鹈鹕",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "你一局游戏只能发动一次技能。你可以在某个晚上选择吞掉任一名非己的与你相邻的存活玩家，此后该玩家不参与投票也无法发动任何技能。其他玩家将认为该玩家出局。若你在白天被投票出局或刺杀出局，你肚子里的玩家将与你一起出局。若你在夜晚被杀死且你肚子里有玩家，你肚子里的玩家将从你肚子里出来，他将知道谁杀死了你，且夜晚结束直接进入白天。你在投票阶段只能投给“弃票”。若当某一时刻场上（不在你肚子里）只剩下2名存活玩家且你存活，你获胜。",
+    "search": "鹈鹕 pelican neutral 中立 吞食 肚子 只能弃票 剩2人 胜利"
+  },
+  {
+    "id": "falcon",
+    "name": "猎鹰",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "你一局游戏只能开一刀。你可以在某个夜晚选择杀死任一名非己的与你相邻的存活玩家。你在投票阶段只能投给“弃票”。当某一时刻场上只剩下2名存活玩家且你存活，你获胜。",
+    "search": "猎鹰 falcon neutral 中立 相邻击杀 一刀 只能弃票 剩2人 胜利"
+  },
+  {
+    "id": "vulture",
+    "name": "秃鹫",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "每夜若有非加拿大鹅且非肚子里有玩家的鹈鹕的玩家被杀死，你计数+1（每夜最多+1）。累计2次且你存活即获胜。",
+    "search": "秃鹫 vulture neutral 中立 计数 死者 胜利"
+  },
+  {
+    "id": "raven",
+    "name": "渡鸦",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "在每个白天轮麦阶段你将被系统指定一个目标，如“杀死一个大白鹅”。你可以在轮麦阶段猜测某位存活玩家是这个目标，若你猜对，则该玩家被“刺杀”出局。当某一时刻场上只剩下2名存活玩家且你存活，你获胜。",
+    "search": "渡鸦 raven neutral 中立 系统目标 猜身份 刺杀 剩2人 胜利"
+  },
+  {
+    "id": "magpie",
+    "name": "喜鹊",
+    "faction": "neutral",
+    "faction_name": "中立阵营",
+    "description": "在每个白天轮麦阶段你可以选择猜测某个非己玩家（死活皆可）的身份。你的猜测将不会被任何除你之外的玩家知道。若你猜对，则你可以接着猜下一位玩家的身份。当你累计猜对两名不同玩家的身份时，你获胜。",
+    "search": "喜鹊 magpie neutral 中立 猜身份 连猜 胜利 死活皆可"
+  }
+]
