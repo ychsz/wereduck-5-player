@@ -41,13 +41,16 @@ class Player:
     lobbyist_votes: int = 0          # accumulated votes received (for charge calc)
     lobbyist_votes_since_charge: int = 0
     lobbyist_killed_tonight: bool = False
-    spy_intel: dict[int, str] = field(default_factory=dict)  # seat -> role_id learned
+    spy_intel: dict[int, str] = field(default_factory=dict)  # seat -> role_id learned (revealed)
+    pending_spy_intel: dict[int, str] = field(default_factory=dict)  # seat -> role_id, revealed next day
     priest_double_target: Optional[int] = None  # seat to double NEXT day's vote
     priest_double_consumed: bool = False
     vulture_count: int = 0
     raven_target_role: Optional[str] = None  # assigned each day
     raven_used_today: bool = False
     magpie_correct: list[int] = field(default_factory=list)  # seats correctly guessed
+    magpie_guessed_today: bool = False     # has guessed at all today
+    magpie_chain_active: bool = False      # can continue guessing (last guess was correct)
     assassin_used_today: bool = False
     # night-action state
     night_action_done: bool = False
@@ -55,6 +58,10 @@ class Player:
     detective_target: Optional[int] = None
     # intel messages revealed to this player (night results, etc.)
     intel_msgs: list[str] = field(default_factory=list)
+    # personal chat messages shown only to this player (persists in chat area)
+    personal_chat: list[dict] = field(default_factory=list)
+    # death reason shown only to the dead player (e.g. "2号 玩家 杀死了你")
+    death_reason: str = ""
     # connection
     ws: Any = None
     online: bool = True
@@ -185,17 +192,22 @@ class GameState:
             p.lobbyist_votes_since_charge = 0
             p.lobbyist_killed_tonight = False
             p.spy_intel = {}
+            p.pending_spy_intel = {}
             p.priest_double_target = None
             p.priest_double_consumed = False
             p.vulture_count = 0
             p.raven_target_role = None
             p.raven_used_today = False
             p.magpie_correct = []
+            p.magpie_guessed_today = False
+            p.magpie_chain_active = False
             p.assassin_used_today = False
             p.night_action_done = False
             p.tracker_target = None
             p.detective_target = None
             p.intel_msgs = []
+            p.personal_chat = []
+            p.death_reason = ""
 
     def reset_night_transient(self) -> None:
         for p in self.players.values():
@@ -206,7 +218,8 @@ class GameState:
             p.night_action_done = False
             p.tracker_target = None
             p.detective_target = None
-            for attr in ("_did_kill_tonight", "_killed_by_role"):
+            for attr in ("_did_kill_tonight", "_killed_by_role", "_killed_by_seat",
+                     "_piped_ever_tonight", "_had_belly_at_death", "_canadian_announced"):
                 if hasattr(p, attr):
                     delattr(p, attr)
 
@@ -216,6 +229,8 @@ class GameState:
             p.assassin_used_today = False
             p.raven_used_today = False
             p.priest_double_consumed = False
+            p.magpie_guessed_today = False
+            p.magpie_chain_active = False
 
     def system_chat(self, text: str) -> None:
         self.chat.append(ChatMsg(seat=None, name="系统", text=text, system=True))

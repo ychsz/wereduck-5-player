@@ -80,6 +80,14 @@
     "search": "殡仪员 mortician goose 鹅 出局名单 查角色 尸体"
   },
   {
+    "id": "canadian_goose",
+    "name": "加拿大鹅",
+    "faction": "goose",
+    "faction_name": "鹅阵营",
+    "description": "当鹈鹕吞掉你时，你被杀死直接出局。当你在夜晚被杀死，夜晚直接结束进入白天并且所有玩家都将知道你作为加拿大鹅被杀死了。",
+    "search": "加拿大鹅 canadian_goose goose 鹅 鹈鹕吞食 即死 夜晚结束 公开死因"
+  },
+  {
     "id": "duck",
     "name": "鸭子",
     "faction": "duck",

@@ -110,7 +110,8 @@ body { display: flex; flex-direction: column; min-height: 100dvh; }
 
 /* ===== Role Card ===== */
 .role-card { background: var(--surface); border-radius: var(--radius); padding: 10px 12px; width: 100%; cursor: pointer; border: 1px solid var(--surface2); }
-.role-header { display: flex; align-items: center; gap: 8px; }
+.role-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.role-id-label { font-weight: 700; font-size: 13px; color: var(--text-dim); margin-right: 4px; }
 .role-name { font-weight: 700; font-size: 17px; }
 .role-faction { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
 .role-faction.goose { background: var(--goose); color: #111; }
@@ -144,6 +145,7 @@ body { display: flex; flex-direction: column; min-height: 100dvh; }
 .chat-area { flex: 1; overflow-y: auto; background: var(--surface); border-radius: var(--radius); padding: 8px; width: 100%; display: flex; flex-direction: column; gap: 4px; min-height: 120px; word-break: break-word; }
 .chat-msg { font-size: 13px; line-height: 1.4; }
 .chat-msg.system { color: var(--text-dim); font-style: italic; font-size: 12px; }
+.chat-msg.personal { color: #7ec8e3; font-style: italic; font-size: 12px; border-left: 3px solid #7ec8e3; padding-left: 6px; margin: 2px 0; }
 .chat-msg .chat-name { font-weight: 600; }
 .chat-msg .chat-seat { color: var(--text-dim); font-size: 11px; }
 .chat-input-row { display: flex; gap: 6px; width: 100%; }

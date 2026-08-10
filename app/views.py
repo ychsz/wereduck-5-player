@@ -60,8 +60,16 @@ def player_view(st: GameState, seat: int, my_marks: dict | None = None) -> dict:
         "day_count": st.day_count,
         "my_seat": seat,
         "seats": _seats_view(st, seat, my_marks),
-        "chat": [_chat_dict(c) for c in st.chat[-100:]],
+        "chat": [],
     }
+    # build chat list: system chat + persistent personal messages
+    chat_list = [_chat_dict(c) for c in st.chat[-100:]]
+    # personal messages (vote confirmations, death reasons, etc.) - persistent
+    if p:
+        for pm in p.personal_chat:
+            chat_list.append({"seat": None, "name": pm["name"], "text": pm["text"],
+                              "system": True, "personal": True})
+    view["chat"] = chat_list
     # my role info
     if p and p.role:
         rinfo = R.get(p.role)
@@ -125,8 +133,8 @@ def _day_speech_view(st: GameState, p: Player | None) -> dict:
             d["can_raven_guess"] = True
             d["raven_target"] = R.name_of(p.raven_target_role)
         if p.role == "magpie":
-            d["can_magpie_guess"] = True
-            d["magpie_correct"] = [st.players[s].name for s in p.magpie_correct if s in st.players]
+            d["can_magpie_guess"] = (not p.magpie_guessed_today) or p.magpie_chain_active
+            d["magpie_correct"] = [f"{s}号 {st.players[s].name}" for s in p.magpie_correct if s in st.players]
     return d
 
 
@@ -134,55 +142,69 @@ def _day_vote_view(st: GameState, p: Player | None) -> dict:
     d: dict[str, Any] = {
         "deadline": st.vote_deadline,
         "my_vote": None,
+        "has_voted": False,
         "targets": [],
         "can_vote": False,
     }
     if p and p.alive and p.in_belly_of is None:
-        d["can_vote"] = True
-        # build targets
-        targets = []
-        for seat in range(1, 6):
-            tp = st.players.get(seat)
-            if tp and tp.name and tp.alive and tp.in_belly_of is None and seat != p.seat:
-                targets.append({"seat": seat, "name": tp.name})
-        # can vote self?
-        if p.role in ("dodo", "lobbyist"):
-            targets.append({"seat": p.seat, "name": p.name + "（自己）"})
-        targets.append({"seat": -1, "name": "弃票"})
-        # pelican/falcon must abstain
-        if p.role in ("pelican", "falcon"):
-            targets = [{"seat": -1, "name": "弃票"}]
-        d["targets"] = targets
         d["my_vote"] = st.votes.get(p.seat)
+        if p.seat in st.votes:
+            # already voted — can't change
+            d["has_voted"] = True
+            d["can_vote"] = False
+        else:
+            d["can_vote"] = True
+            # build targets
+            targets = []
+            for seat in range(1, 6):
+                tp = st.players.get(seat)
+                if tp and tp.name and tp.alive and tp.in_belly_of is None and seat != p.seat:
+                    targets.append({"seat": seat, "name": tp.name})
+            # can vote self?
+            if p.role in ("dodo", "lobbyist"):
+                targets.append({"seat": p.seat, "name": p.name + "（自己）"})
+            targets.append({"seat": -1, "name": "弃票"})
+            # pelican/falcon must abstain
+            if p.role in ("pelican", "falcon"):
+                targets = [{"seat": -1, "name": "弃票"}]
+            d["targets"] = targets
     return d
 
 
 def _game_over_view(st: GameState) -> dict:
     seats = []
+    ready_count = 0
+    total = 0
     for seat in range(1, 6):
         p = st.players.get(seat)
         if p and p.name:
+            total += 1
+            if p.ready:
+                ready_count += 1
             seats.append({
                 "seat": seat,
                 "name": p.name,
                 "role": R.name_of(p.role) if p.role else "?",
                 "faction": R.faction_of(p.role) if p.role else "?",
                 "won": seat in st.winners,
+                "ready": p.ready,
             })
-    return {"seats": seats, "reason": st.win_reason, "winners": st.winners}
+    return {"seats": seats, "reason": st.win_reason, "winners": st.winners,
+            "ready_count": ready_count, "total": total}
 
 
 def _private_notes(st: GameState, p: Player) -> dict:
     notes: dict[str, Any] = {}
     # pelican knows who's in belly
     if p.role == "pelican" and p.pelican_belly:
-        notes["belly"] = [st.players[s].name for s in p.pelican_belly if s in st.players]
+        notes["belly"] = [f"{s}号 {st.players[s].name}" for s in p.pelican_belly if s in st.players]
     # in belly: you know you're swallowed and by whom
     if p.in_belly_of is not None:
-        notes["in_belly_of"] = st.players[p.in_belly_of].name
+        sw = st.players[p.in_belly_of]
+        notes["in_belly_of"] = f"{sw.seat}号 {sw.name}"
     # pigeon knows infected
     if p.role == "pigeon" and p.pigeon_infected:
-        notes["infected"] = [st.players[s].name for s in p.pigeon_infected if s in st.players]
+        notes["infected"] = [f"{s}号 {st.players[s].name}" for s in p.pigeon_infected if s in st.players]
     # cupid lovers
     if st.lover_pair:
         a, b = st.lover_pair
@@ -190,7 +212,7 @@ def _private_notes(st: GameState, p: Player) -> dict:
             other_seat = b if p.seat == a else a
             op = st.players.get(other_seat)
             if op:
-                notes["lover"] = op.name
+                notes["lover"] = f"{other_seat}号 {op.name}"
     # vulture count
     if p.role == "vulture":
         notes["vulture_count"] = p.vulture_count
@@ -199,7 +221,8 @@ def _private_notes(st: GameState, p: Player) -> dict:
         notes["magpie_correct_count"] = len(p.magpie_correct)
     # priest double target
     if p.role == "priest" and p.priest_double_target is not None:
-        notes["priest_double"] = st.players[p.priest_double_target].name
+        dt = st.players[p.priest_double_target]
+        notes["priest_double"] = f"{dt.seat}号 {dt.name}"
     # lobbyist charges
     if p.role == "lobbyist":
         notes["lobbyist_charges"] = p.lobbyist_charges

@@ -15,6 +15,8 @@ const G = {
   nightExtra: {},        // extra fields for complex actions
   voteTarget: null,
   countdownTimer: null,
+  prevPhase: null,       // track phase transitions for clearing marks
+  prevDayCount: 0,
 };
 
 // ===== Init =====
@@ -62,8 +64,13 @@ async function init() {
   // Ready
   document.getElementById('btn-ready').onclick = () => send({ type: 'ready' });
   document.getElementById('btn-ready-again').onclick = () => {
-    document.getElementById('gameover-overlay').classList.add('hidden');
-    send({ type: 'ready' });
+    const go = G.state && G.state.game_over;
+    const me = go && go.seats && go.seats.find(s => s.seat === G.mySeat);
+    if (me && me.ready) {
+      send({ type: 'cancel_ready' });
+    } else {
+      send({ type: 'ready' });
+    }
   };
 }
 
@@ -168,6 +175,10 @@ function handleMessage(data) {
     if (data.text) showTransientError(data.text);
     return;
   }
+  if (data.type === 'guess_result') {
+    handleGuessResult(data);
+    return;
+  }
   if (data.type === 'state') {
     G.state = data;
     delete G.state.type;
@@ -215,6 +226,18 @@ function saveMarks() {
 // ===== Render =====
 function render() {
   if (!G.state) return;
+  // Detect new game starting: phase transitions to night with day_count == 1
+  // from a non-night phase (game_over, waiting, ready), or day_count resets.
+  const newPhase = G.state.phase;
+  const newDay = G.state.day_count;
+  if (newPhase === 'night' && newDay === 1
+      && G.prevPhase !== null && G.prevPhase !== 'night') {
+    G.marks = {};
+    saveMarks();
+    renderSeats();
+  }
+  G.prevPhase = newPhase;
+  G.prevDayCount = newDay;
   renderHeader();
   renderRoleCard();
   renderSeats();
@@ -237,6 +260,10 @@ function renderRoleCard() {
   if (!G.state.my_role) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   const r = G.state.my_role;
+  // "X号 昵称" label at top of card
+  const mySeat = G.state.my_seat;
+  const myName = (G.state.seats.find(s => s.seat === mySeat) || {}).name || '';
+  document.getElementById('role-id-label').textContent = `${mySeat}号 ${myName}`;
   document.getElementById('role-name').textContent = r.name;
   const f = document.getElementById('role-faction');
   f.textContent = r.faction_name;
@@ -343,7 +370,7 @@ function renderNightPanel() {
     html += `<div class="target-item" data-action="nopipe"><input type="radio" name="np"> 不钻管道</div>`;
     html += '</div>';
     html += '<div class="btn-row"><button class="btn btn-primary" id="btn-night-submit">确认</button></div>';
-  } else if (prompt.step === 'cupid') {
+  } else if (prompt.role === '丘比特') {
     // kill targets + arrow option
     html += '<div class="target-list">';
     if (prompt.can_arrow) html += `<div class="target-item" data-action="arrow"><input type="radio" name="np"> 使用射箭（连2人为恋人）</div>`;
@@ -359,7 +386,7 @@ function renderNightPanel() {
     for (const t of (prompt.arrow_targets || [])) html += `<option value="${t.seat}">${t.name}（${t.seat}号）</option>`;
     html += '</select></div>';
     html += '<div class="btn-row"><button class="btn btn-primary" id="btn-night-submit">确认</button></div>';
-  } else if (prompt.step === 'priest') {
+  } else if (prompt.role === '牧师') {
     // kill targets + double target
     html += '<div class="target-list">';
     for (const t of (prompt.targets || [])) {
@@ -483,6 +510,10 @@ function renderVotePanel() {
   if (G.state.phase !== 'day_vote') { panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
   const dv = G.state.day_vote;
+  if (dv.has_voted) {
+    panel.innerHTML = `<div class="ap-text">✅ 已投票（仅自己可见）。等待其他玩家投票...</div>`;
+    return;
+  }
   if (!dv.can_vote) {
     panel.innerHTML = '<div class="ap-text">🗳️ 投票进行中...（你无法投票）</div>';
     return;
@@ -512,14 +543,19 @@ function renderChat() {
   const area = document.getElementById('chat-area');
   const msgs = G.state.chat || [];
   // only re-render if changed
-  const sig = msgs.map(m => m.text + m.name + m.seat).join('|');
+  const sig = msgs.map(m => m.text + m.name + m.seat + (m.personal ? '1' : '0')).join('|');
   if (area._sig === sig) { scrollChat(); return; }
   area._sig = sig;
   area.innerHTML = '';
   for (const m of msgs) {
     const d = document.createElement('div');
-    d.className = 'chat-msg' + (m.system ? ' system' : '');
-    if (m.system) {
+    let cls = 'chat-msg';
+    if (m.system) cls += ' system';
+    if (m.personal) cls += ' personal';
+    d.className = cls;
+    if (m.personal) {
+      d.textContent = '🔒 ' + m.text + '（仅自己可见）';
+    } else if (m.system) {
       d.textContent = m.text;
     } else {
       d.innerHTML = `<span class="chat-seat">${m.seat}号</span> <span class="chat-name">${m.name}:</span> ${escapeHtml(m.text)}`;
@@ -592,6 +628,20 @@ function renderOverlays() {
       row.className = 'go-seat' + (s.won ? ' won' : '');
       row.innerHTML = `${s.seat}号 ${s.name} <span class="go-role">${s.role}（${s.faction}）${s.won ? ' 🏆' : ''}</span>`;
       sc.appendChild(row);
+    }
+    // Ready status for next round
+    const readyCount = go.ready_count || 0;
+    const total = go.total || 5;
+    const me = go.seats.find(s => s.seat === G.mySeat);
+    const statusEl = document.getElementById('go-ready-status');
+    const btn = document.getElementById('btn-ready-again');
+    statusEl.textContent = `${readyCount}/${total}人已准备`;
+    if (me && me.ready) {
+      btn.textContent = '已准备，等待其他玩家...';
+      btn.classList.remove('btn-primary');
+    } else {
+      btn.textContent = '准备（下一局）';
+      btn.classList.add('btn-primary');
     }
   } else {
     goOv.classList.add('hidden');
@@ -753,5 +803,24 @@ function submitGuess() {
     send({ type: 'day_guess', target, role: _guessSelectedRole });
   }
   document.getElementById('guess-result').textContent = '猜测已提交，等待结果...';
-  // keep dialog open; server will send error(result msg) which shows in guess-result
+}
+
+function handleGuessResult(data) {
+  // data: { ok, msg, correct, target_seat, guessed_role, game_over }
+  const dialog = document.getElementById('guess-dialog');
+  // Show result message briefly
+  const gr = document.getElementById('guess-result');
+  if (gr) gr.textContent = data.msg || '';
+  // Magpie auto-mark on correct guess
+  if (data.correct && data.target_seat && data.guessed_role && _guessMode === 'magpie') {
+    G.marks[String(data.target_seat)] = data.guessed_role;
+    saveMarks();
+    renderSeats();
+  }
+  // Auto-close dialog after short delay (unless game over)
+  if (!data.game_over) {
+    setTimeout(() => {
+      dialog.classList.add('hidden');
+    }, 1200);
+  }
 }

@@ -102,7 +102,7 @@ class Room:
                     secret=secrets.token_hex(8))
         self.st.players[seat] = p
         self.connections[seat] = ws
-        self.st.system_chat(f"{name.strip()} 入座 {seat}号。")
+        self.st.system_chat(f"{seat}号 {name.strip()} 入座。")
         return seat
 
     # ---- ready / start ----
@@ -112,7 +112,7 @@ class Room:
         if not p:
             return
         p.ready = ready
-        self.st.system_chat(f"{p.name} {'已准备' if ready else '取消准备'}。")
+        self.st.system_chat(f"{seat}号 {p.name} {'已准备' if ready else '取消准备'}。")
         await self.broadcast()
         # check all ready
         if self.st.all_seated() and all(self.st.players[s].ready for s in self.st.occupied_seats()):
@@ -192,7 +192,7 @@ class Room:
             return
 
         if t == "cancel_ready":
-            if p and self.st.phase in (Phase.WAITING, Phase.READY):
+            if p and self.st.phase in (Phase.WAITING, Phase.READY, Phase.GAME_OVER):
                 await self.set_ready(seat, False)
             return
 
@@ -219,7 +219,14 @@ class Room:
         if t == "day_guess":
             if self.st.phase == Phase.DAY_SPEECH and self.ctl and p:
                 result = await day_guess(self.st, self.ctl, seat, int(data.get("target", 0)), data.get("role", ""))
-                await self.send_error(ws, result.get("msg", ""))
+                # send structured result to the guesser; error msg for validation failures
+                if result.get("ok"):
+                    try:
+                        await ws.send_text(P.msg("guess_result", **result))
+                    except Exception:
+                        pass
+                else:
+                    await self.send_error(ws, result.get("msg", ""))
             return
 
         if t == "get_state":
