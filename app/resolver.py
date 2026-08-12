@@ -380,6 +380,8 @@ def apply_kill(st: GameState, killer_seat: int, target_seat: int, killer_role: s
     # death reason for the victim (shown only to them)
     verb = "狙杀了" if killer_role == "sniper" else "杀死了"
     _set_death_reason(target, f"{killer_seat}号 {killer.name} {verb}你")
+    # lover chain (immediate, cascading) — 殉情先于一切其他"立即"效果
+    _handle_lover_death(st, target_seat, is_night=True)
     # sheriff self-destruct if killed a goose
     if killer_role == "sheriff":
         if target.is_goose:
@@ -387,8 +389,7 @@ def apply_kill(st: GameState, killer_seat: int, target_seat: int, killer_role: s
             kp.alive = False
             kp.died_night = True
             _set_death_reason(kp, "你因杀死鹅阵营玩家而倒牌")
-    # lover chain (immediate, cascading)
-    _handle_lover_death(st, target_seat, is_night=True)
+            _handle_lover_death(st, killer_seat, is_night=True)
     # NOTE: pelican-belly release on death is handled centrally in _run_step
     # (so the night short-circuits regardless of killer role)
     # Canadian Goose short-circuit is also handled in _run_step
@@ -509,6 +510,7 @@ def _apply_kill_step(st: GameState, step_key: str, p: Player, action: dict) -> b
                 _set_death_reason(tp, f"{p.seat}号 {p.name} 吞食了你（加拿大鹅立即出局）")
                 p.pelican_used = True
                 p._did_kill_tonight = True  # type: ignore[attr-defined]
+                _handle_lover_death(st, tgt, is_night=True)
                 return True
             tp.in_belly_of = p.seat
             p.pelican_belly.append(tgt)
