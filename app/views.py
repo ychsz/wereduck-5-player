@@ -62,14 +62,29 @@ def player_view(st: GameState, seat: int, my_marks: dict | None = None) -> dict:
         "seats": _seats_view(st, seat, my_marks),
         "chat": [],
     }
-    # build chat list: system chat + persistent personal messages
-    chat_list = [_chat_dict(c) for c in st.chat[-100:]]
-    # personal messages (vote confirmations, death reasons, etc.) - persistent
+    # build chat list: merge system chat + persistent personal messages,
+    # ordered by timestamp so personal confirmations interleave correctly
+    # (e.g. "你选择了弃票" must appear after "🗳️ 投票阶段开始" and before "投票结果").
+    # Show the last 100 system messages; personal messages are few per game
+    # (vote confirmations, kill confirmations, etc.) so we include all of them
+    # and let the sort interleave them at their correct time positions.
+    sys_msgs = st.chat[-100:]
+    merged: list[dict] = []
+    for c in sys_msgs:
+        d = _chat_dict(c)
+        d["ts"] = c.ts
+        merged.append(d)
     if p:
         for pm in p.personal_chat:
-            chat_list.append({"seat": None, "name": pm["name"], "text": pm["text"],
-                              "system": True, "personal": True})
-    view["chat"] = chat_list
+            ts = pm.get("ts", 0.0)
+            merged.append({"seat": None, "name": pm.get("name", ""),
+                           "text": pm.get("text", ""), "system": True,
+                           "personal": True, "ts": ts})
+    merged.sort(key=lambda x: x["ts"])
+    # strip ts from the final payload (frontend uses its own signature)
+    for m in merged:
+        m.pop("ts", None)
+    view["chat"] = merged
     # my role info
     if p and p.role:
         rinfo = R.get(p.role)

@@ -360,7 +360,7 @@ def _build_prompt(st: GameState, step_key: str) -> Optional[dict]:
 def _set_death_reason(p: Player, reason: str) -> None:
     """Set death reason and persist it as a personal chat message."""
     p.death_reason = reason
-    p.personal_chat.append({"name": "出局", "text": reason})
+    p.personal_chat.append({"name": "出局", "text": reason, "ts": time.time()})
 
 
 def apply_kill(st: GameState, killer_seat: int, target_seat: int, killer_role: str) -> None:
@@ -380,6 +380,11 @@ def apply_kill(st: GameState, killer_seat: int, target_seat: int, killer_role: s
     # death reason for the victim (shown only to them)
     verb = "狙杀了" if killer_role == "sniper" else "杀死了"
     _set_death_reason(target, f"{killer_seat}号 {killer.name} {verb}你")
+    # killer-side confirmation (chat area, visible only to killer)
+    if killer_seat != target_seat:
+        killer.personal_chat.append({"name": "击杀",
+            "text": f"你{verb}{target_seat}号 {target.name}",
+            "ts": time.time()})
     # lover chain (immediate, cascading) — 殉情先于一切其他"立即"效果
     _handle_lover_death(st, target_seat, is_night=True)
     # sheriff self-destruct if killed a goose
@@ -508,6 +513,9 @@ def _apply_kill_step(st: GameState, step_key: str, p: Player, action: dict) -> b
                 tp._killed_by_seat = p.seat  # type: ignore[attr-defined]
                 tp._had_belly_at_death = False  # type: ignore[attr-defined]
                 _set_death_reason(tp, f"{p.seat}号 {p.name} 吞食了你（加拿大鹅立即出局）")
+                p.personal_chat.append({"name": "击杀",
+                    "text": f"你吞食了{tgt}号 {tp.name}（加拿大鹅立即出局）",
+                    "ts": time.time()})
                 p.pelican_used = True
                 p._did_kill_tonight = True  # type: ignore[attr-defined]
                 _handle_lover_death(st, tgt, is_night=True)
@@ -516,6 +524,9 @@ def _apply_kill_step(st: GameState, step_key: str, p: Player, action: dict) -> b
             p.pelican_belly.append(tgt)
             p.pelican_used = True
             tp.intel_msgs.append(f"你被{p.seat}号 {p.name}（鹈鹕）吞食。你不参与投票，无法发动技能。")
+            p.personal_chat.append({"name": "击杀",
+                "text": f"你吞食了{tgt}号 {tp.name}，其将不参与投票，无法发动技能",
+                "ts": time.time()})
             return True
         if p.role == "falcon" and not p.falcon_used:
             apply_kill(st, p.seat, tgt, "falcon")
@@ -847,7 +858,7 @@ async def day_guess(st: GameState, ctl: GameController, guesser_seat: int, targe
             if target_seat not in p.magpie_correct:
                 p.magpie_correct.append(target_seat)
                 msg_text = f"你猜{tgt_label}是{R.name_of(guessed_role)}，正确！累计猜对{len(p.magpie_correct)}名。"
-                p.personal_chat.append({"name": "喜鹊", "text": msg_text})
+                p.personal_chat.append({"name": "喜鹊", "text": msg_text, "ts": time.time()})
                 if len(p.magpie_correct) >= 2:
                     _declare_win(st, [guesser_seat], "喜鹊累计猜对两名不同玩家的身份，获胜！")
                     await _end_game(st, ctl)
@@ -858,14 +869,14 @@ async def day_guess(st: GameState, ctl: GameController, guesser_seat: int, targe
                          "target_seat": target_seat, "guessed_role": guessed_role}
             else:
                 msg_text = f"你猜{tgt_label}是{R.name_of(guessed_role)}，正确（但该玩家已在正确列表中）。可继续猜。"
-                p.personal_chat.append({"name": "喜鹊", "text": msg_text})
+                p.personal_chat.append({"name": "喜鹊", "text": msg_text, "ts": time.time()})
                 await ctl.broadcast()
                 return {"ok": True, "msg": msg_text, "correct": True,
                          "target_seat": target_seat, "guessed_role": guessed_role}
         else:
             p.magpie_chain_active = False
             msg_text = f"你猜{tgt_label}是{R.name_of(guessed_role)}，猜错了。连猜终止。"
-            p.personal_chat.append({"name": "喜鹊", "text": msg_text})
+            p.personal_chat.append({"name": "喜鹊", "text": msg_text, "ts": time.time()})
             await ctl.broadcast()
             return {"ok": True, "msg": msg_text, "correct": False,
                      "target_seat": target_seat, "guessed_role": guessed_role}
@@ -905,6 +916,10 @@ async def _start_vote(st: GameState, ctl: GameController) -> None:
             _handle_lover_death(st, tseat, is_night=False)
             if tp.role == "pelican":
                 _kill_pelican_belly_day(st, tseat, killed)
+            if gseat != tseat:
+                killer_p.personal_chat.append({"name": "刺杀",
+                    "text": f"你刺杀了{tseat}号 {tp.name}",
+                    "ts": time.time()})
     for gseat, tseat, role in st.pending_raven:
         tp = st.players[tseat]
         if tp.alive:
@@ -916,6 +931,10 @@ async def _start_vote(st: GameState, ctl: GameController) -> None:
             _handle_lover_death(st, tseat, is_night=False)
             if tp.role == "pelican":
                 _kill_pelican_belly_day(st, tseat, killed)
+            if gseat != tseat:
+                killer_p.personal_chat.append({"name": "刺杀",
+                    "text": f"你刺杀了{tseat}号 {tp.name}",
+                    "ts": time.time()})
     st.pending_assassin = []
     st.pending_raven = []
     if killed:
@@ -947,10 +966,12 @@ async def submit_vote(st: GameState, ctl: GameController, seat: int, target: int
     st.votes[seat] = target
     # persistent personal vote confirmation (only visible to voter)
     if target == -1:
-        p.personal_chat.append({"name": "投票", "text": "你选择了弃票"})
+        p.personal_chat.append({"name": "投票", "text": "你选择了弃票", "ts": time.time()})
     else:
         tp = st.players.get(target)
-        p.personal_chat.append({"name": "投票", "text": f"你投给了{target}号 {tp.name if tp and tp.name else '?'}"})
+        p.personal_chat.append({"name": "投票",
+            "text": f"你投给了{target}号 {tp.name if tp and tp.name else '?'}",
+            "ts": time.time()})
     await ctl.broadcast()
     # if all alive players voted, end vote early
     alive_voters = [pp.seat for pp in st.players.values() if pp.alive and pp.in_belly_of is None and pp.name]
