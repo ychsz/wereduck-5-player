@@ -735,6 +735,15 @@ function openGuessDialog(mode) {
   const title = document.getElementById('guess-title');
   const hint = document.getElementById('guess-hint');
   const targetSelect = document.getElementById('guess-target');
+  // 角色选择 UI：raven 只猜目标不猜角色（隐藏）；assassin/magpie 需要选角色（显示）。
+  // 显式用 '' 清除可能残留的 display:none，防止跨局/跨角色复用对话框时元素被永久隐藏。
+  const roleLabel  = document.getElementById('guess-role-search').parentElement.querySelector('label:nth-of-type(2)');
+  const roleSearch = document.getElementById('guess-role-search');
+  const roleList   = document.getElementById('guess-role-list');
+  const showRolePick = (mode !== 'raven');
+  roleLabel.style.display  = showRolePick ? '' : 'none';
+  roleSearch.style.display = showRolePick ? '' : 'none';
+  roleList.style.display   = showRolePick ? '' : 'none';
   // build target options
   targetSelect.innerHTML = '';
   const seats = G.state.seats || [];
@@ -754,10 +763,6 @@ function openGuessDialog(mode) {
     title.textContent = '渡鸦·猜目标';
     const target = G.state.day_speech.raven_target || '';
     hint.textContent = `猜谁是「${target}」。猜对：目标被刺杀。猜错：无效果。`;
-    // raven doesn't pick a role, only target
-    document.getElementById('guess-role-search').parentElement.querySelector('label:nth-of-type(2)').style.display = 'none';
-    document.getElementById('guess-role-search').style.display = 'none';
-    document.getElementById('guess-role-list').style.display = 'none';
   } else {
     title.textContent = '喜鹊·猜身份';
     hint.textContent = '猜对可继续猜。累计猜对2名不同玩家获胜。';
