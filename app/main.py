@@ -53,7 +53,7 @@ async def ws_endpoint(ws: WebSocket, code: str):
     room = get_room(code)
     if not room:
         await ws.accept()
-        await ws.send_text(P.error("房间不存在。"))
+        await ws.send_text(P.error("房间不存在。", code="room_not_found"))
         await ws.close(code=4000)
         return
     await ws.accept()
@@ -68,7 +68,12 @@ async def ws_endpoint(ws: WebSocket, code: str):
         await ws.send_text(P.error("请先发送 join 消息。"))
         await ws.close()
         return
-    seat = int(data.get("seat", 0))
+    try:
+        seat = int(data.get("seat", 0))
+    except (TypeError, ValueError):
+        await ws.send_text(P.error("座位号无效（1-5）。", code="invalid_seat"))
+        await ws.close()
+        return
     name = data.get("name", "")
     secret = data.get("secret", "")
     my_seat = await room.join(ws, seat, name, secret)

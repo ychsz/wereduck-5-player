@@ -14,6 +14,13 @@
     <h1>🦆 Wereduck</h1>
     <p class="subtitle">5人鹅鸭杀</p>
     <button id="btn-create" class="btn btn-primary">创建房间</button>
+    <div id="restore-card" class="restore-card hidden">
+      <p id="restore-text" class="hint"></p>
+      <div class="btn-row">
+        <button id="btn-restore" class="btn btn-primary">继续游戏</button>
+        <button id="btn-clear-restore" class="btn-small">忘记</button>
+      </div>
+    </div>
     <div class="divider-row"><span>或</span></div>
     <div class="join-row">
       <input id="input-join-code" class="input" placeholder="4位房间号" maxlength="4" autocomplete="off">
@@ -28,6 +35,13 @@
   <div class="seat-select-card">
     <h2>房间 <span id="room-code-display" class="room-code"></span></h2>
     <p class="hint">选择一个空座位并输入昵称：</p>
+    <div id="seat-restore-card" class="restore-card hidden">
+      <p id="seat-restore-text" class="hint"></p>
+      <div class="btn-row">
+        <button id="btn-seat-restore" class="btn btn-primary">恢复原座位</button>
+        <button id="btn-seat-clear-restore" class="btn-small">不用这个身份</button>
+      </div>
+    </div>
     <div id="seat-grid-select" class="seat-grid"></div>
     <div class="name-row">
       <input id="input-name" class="input" placeholder="输入昵称" maxlength="10" autocomplete="off">

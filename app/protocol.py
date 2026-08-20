@@ -23,8 +23,11 @@ def state(payload: dict) -> str:
     return msg("state", **payload)
 
 
-def error(text: str) -> str:
-    return msg("error", text=text)
+def error(text: str, code: str | None = None) -> str:
+    data = {"text": text}
+    if code:
+        data["code"] = code
+    return msg("error", **data)
 
 
 def chat(seat, name: str, text: str, system: bool = False) -> str:
