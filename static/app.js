@@ -5,11 +5,18 @@ const G = {
   ws: null,
   roomCode: null,
   mySeat: null,
+  myName: null,
   secret: null,
   state: null,
   roles: [],
   rolesById: {},
   selectedSeat: null,    // for seat selection screen
+  pendingJoinName: '',   // name used before the joined ack returns
+  isRestoring: false,
+  restoreIdentity: null,
+  suppressReconnect: false,
+  reconnectTimer: null,
+  wsGen: 0,
   marks: {},             // {targetSeat: roleId}
   nightTarget: null,     // selected night action target
   nightExtra: {},        // extra fields for complex actions
@@ -18,6 +25,10 @@ const G = {
   prevPhase: null,       // track phase transitions for clearing marks
   prevDayCount: 0,
 };
+
+const IDENTITY_KEY_PREFIX = 'wereduck_identity_';
+const LAST_IDENTITY_KEY = 'wereduck_last_identity';
+const IDENTITY_TTL_MS = 24 * 60 * 60 * 1000;
 
 // ===== Init =====
 window.addEventListener('DOMContentLoaded', init);
@@ -34,6 +45,14 @@ async function init() {
   // Landing buttons
   document.getElementById('btn-create').onclick = onCreate;
   document.getElementById('btn-join').onclick = onJoin;
+  const restoreBtn = document.getElementById('btn-restore');
+  if (restoreBtn) restoreBtn.onclick = () => attemptRestore(loadLastIdentity());
+  const clearRestoreBtn = document.getElementById('btn-clear-restore');
+  if (clearRestoreBtn) clearRestoreBtn.onclick = () => {
+    const id = loadLastIdentity();
+    if (id) clearIdentity(id.roomCode);
+    renderLastIdentity();
+  };
   document.getElementById('input-join-code').addEventListener('input', e => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
   });
@@ -41,6 +60,14 @@ async function init() {
 
   // Seat select
   document.getElementById('btn-sit').onclick = onSit;
+  const seatRestoreBtn = document.getElementById('btn-seat-restore');
+  if (seatRestoreBtn) seatRestoreBtn.onclick = () => attemptRestore(G.restoreIdentity);
+  const seatClearRestoreBtn = document.getElementById('btn-seat-clear-restore');
+  if (seatClearRestoreBtn) seatClearRestoreBtn.onclick = () => {
+    if (G.restoreIdentity) clearIdentity(G.restoreIdentity.roomCode);
+    G.restoreIdentity = null;
+    renderSeatRestore();
+  };
 
   // Chat
   document.getElementById('btn-send').onclick = sendChat;
@@ -72,6 +99,8 @@ async function init() {
       send({ type: 'ready' });
     }
   };
+
+  renderLastIdentity();
 }
 
 // ===== Landing =====
@@ -97,25 +126,37 @@ function onJoin() {
 
 // ===== Seat Selection =====
 async function showSeatSelect(code) {
-  G.roomCode = code;
+  G.roomCode = String(code || '').trim().toUpperCase();
+  G.restoreIdentity = loadIdentity(G.roomCode);
   document.getElementById('landing').classList.add('hidden');
   document.getElementById('seat-select').classList.remove('hidden');
-  document.getElementById('room-code-display').textContent = code;
+  document.getElementById('room-code-display').textContent = G.roomCode;
+  document.getElementById('seat-error').textContent = '';
   G.selectedSeat = null;
+  renderSeatRestore();
   await refreshSeatSelect();
 }
 
 async function refreshSeatSelect() {
   try {
     const res = await fetch(`/api/room/${G.roomCode}`);
-    if (!res.ok) { document.getElementById('seat-error').textContent = '房间不存在'; return; }
+    if (!res.ok) {
+      document.getElementById('seat-error').textContent = '房间不存在';
+      clearIdentity(G.roomCode);
+      G.restoreIdentity = null;
+      renderSeatRestore();
+      renderLastIdentity();
+      return;
+    }
     const info = await res.json();
+    G.restoreIdentity = loadIdentity(G.roomCode);
+    renderSeatRestore();
     const grid = document.getElementById('seat-grid-select');
     grid.innerHTML = '';
     for (const s of info.seats) {
       const btn = document.createElement('div');
       btn.className = 'seat-btn' + (s.taken ? ' taken' : ' empty') + (s.seat === G.selectedSeat ? ' selected' : '');
-      btn.innerHTML = `<span class="seat-num">${s.seat}</span><span class="seat-name">${s.name || (s.taken ? '已占' : '空')}</span>`;
+      btn.innerHTML = `<span class="seat-num">${s.seat}</span><span class="seat-name">${escapeHtml(s.name || (s.taken ? '已占' : '空'))}</span>`;
       if (!s.taken) btn.onclick = () => { G.selectedSeat = s.seat; refreshSeatSelect(); };
       grid.appendChild(btn);
     }
@@ -129,31 +170,45 @@ function onSit() {
   if (!G.selectedSeat) { document.getElementById('seat-error').textContent = '请选择一个座位'; return; }
   if (!name) { document.getElementById('seat-error').textContent = '请输入昵称'; return; }
   document.getElementById('seat-error').textContent = '';
+  G.pendingJoinName = name;
+  G.isRestoring = false;
+  G.suppressReconnect = false;
   connectWS(G.roomCode, G.selectedSeat, name, '');
 }
 
 // ===== WebSocket =====
-function connectWS(code, seat, name, secret) {
+function connectWS(code, seat, name, secret, restoring = false) {
+  if (G.reconnectTimer) {
+    clearTimeout(G.reconnectTimer);
+    G.reconnectTimer = null;
+  }
+  G.roomCode = String(code || '').trim().toUpperCase();
+  G.isRestoring = restoring;
+  G.suppressReconnect = false;
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const url = `${proto}//${location.host}/ws/${code}`;
-  G.ws = new WebSocket(url);
+  const url = `${proto}//${location.host}/ws/${G.roomCode}`;
+  const wsGen = ++G.wsGen;
+  const ws = new WebSocket(url);
+  G.ws = ws;
 
-  G.ws.onopen = () => {
-    send({ type: 'join', seat: parseInt(seat), name, secret });
+  ws.onopen = () => {
+    if (wsGen === G.wsGen) ws.send(JSON.stringify({ type: 'join', seat: parseInt(seat), name, secret }));
   };
-  G.ws.onmessage = (ev) => {
+  ws.onmessage = (ev) => {
     const data = JSON.parse(ev.data);
     handleMessage(data);
   };
-  G.ws.onclose = () => {
-    if (G.state && G.state.phase !== 'game_over') {
-      // auto-reconnect
-      setTimeout(() => {
-        if (G.secret) connectWS(G.roomCode, G.mySeat, '', G.secret);
+  ws.onclose = () => {
+    if (wsGen !== G.wsGen || G.suppressReconnect) return;
+    if (G.state && G.secret) {
+      // auto-reconnect while the room still exists, including game-over/ready screens
+      G.reconnectTimer = setTimeout(() => {
+        G.reconnectTimer = null;
+        if (G.secret && !G.suppressReconnect) connectWS(G.roomCode, G.mySeat, '', G.secret);
       }, 2000);
     }
   };
-  G.ws.onerror = () => {};
+  ws.onerror = () => {};
 }
 
 function send(obj) {
@@ -164,14 +219,30 @@ function handleMessage(data) {
   if (data.type === 'joined') {
     G.mySeat = data.seat;
     G.secret = data.secret;
+    G.myName = G.pendingJoinName || (G.restoreIdentity && G.restoreIdentity.name) || G.myName || '';
+    saveIdentity(G.roomCode, G.mySeat, G.myName, G.secret);
+    G.pendingJoinName = '';
+    G.isRestoring = false;
+    G.suppressReconnect = false;
     loadMarks();
     document.getElementById('seat-select').classList.add('hidden');
     document.getElementById('landing').classList.add('hidden');
     document.getElementById('game').classList.remove('hidden');
+    renderLastIdentity();
     return;
   }
   if (data.type === 'error') {
     // show errors contextually
+    if (G.isRestoring) {
+      const code = G.roomCode;
+      G.suppressReconnect = true;
+      G.isRestoring = false;
+      G.restoreIdentity = null;
+      G.secret = null;
+      clearIdentity(code);
+      renderLastIdentity();
+      renderSeatRestore();
+    }
     if (data.text) showTransientError(data.text);
     return;
   }
@@ -182,6 +253,11 @@ function handleMessage(data) {
   if (data.type === 'state') {
     G.state = data;
     delete G.state.type;
+    const me = G.state.seats && G.state.seats.find(s => s.seat === G.mySeat);
+    if (me && me.name && G.secret) {
+      G.myName = me.name;
+      saveIdentity(G.roomCode, G.mySeat, G.myName, G.secret);
+    }
     render();
   }
 }
@@ -196,6 +272,11 @@ function showTransientError(text) {
   const se = document.getElementById('seat-error');
   if (se && !document.getElementById('seat-select').classList.contains('hidden')) {
     se.textContent = text;
+    return;
+  }
+  const le = document.getElementById('landing-error');
+  if (le && !document.getElementById('landing').classList.contains('hidden')) {
+    le.textContent = text;
     return;
   }
   // fallback: brief flash in chat
@@ -221,6 +302,115 @@ function saveMarks() {
   try {
     localStorage.setItem(`wereduck_marks_${G.roomCode}_${G.mySeat}`, JSON.stringify(G.marks));
   } catch {}
+}
+
+function identityKey(code) {
+  return `${IDENTITY_KEY_PREFIX}${String(code || '').trim().toUpperCase()}`;
+}
+
+function loadIdentity(code) {
+  try {
+    const raw = localStorage.getItem(identityKey(code));
+    if (!raw) return null;
+    const id = JSON.parse(raw);
+    if (!id || id.version !== 1) return null;
+    if (!id.roomCode || !id.seat || !id.secret) return null;
+    if (id.updatedAt && Date.now() - id.updatedAt > IDENTITY_TTL_MS) {
+      clearIdentity(id.roomCode);
+      return null;
+    }
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+function saveIdentity(code, seat, name, secret) {
+  if (!code || !seat || !secret) return;
+  const id = {
+    version: 1,
+    roomCode: String(code).trim().toUpperCase(),
+    seat: parseInt(seat),
+    name: name || '',
+    secret,
+    updatedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(identityKey(id.roomCode), JSON.stringify(id));
+    localStorage.setItem(LAST_IDENTITY_KEY, id.roomCode);
+  } catch {}
+}
+
+function clearIdentity(code) {
+  const roomCode = String(code || '').trim().toUpperCase();
+  try {
+    localStorage.removeItem(identityKey(roomCode));
+    const last = localStorage.getItem(LAST_IDENTITY_KEY);
+    if (last === roomCode) localStorage.removeItem(LAST_IDENTITY_KEY);
+  } catch {}
+}
+
+function loadLastIdentity() {
+  try {
+    const code = localStorage.getItem(LAST_IDENTITY_KEY);
+    return code ? loadIdentity(code) : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderLastIdentity() {
+  const card = document.getElementById('restore-card');
+  const text = document.getElementById('restore-text');
+  const id = loadLastIdentity();
+  if (!card || !text) return;
+  if (!id) {
+    card.classList.add('hidden');
+    return;
+  }
+  card.classList.remove('hidden');
+  text.textContent = `继续房间 ${id.roomCode} · ${id.seat}号${id.name ? ' · ' + id.name : ''}`;
+}
+
+function renderSeatRestore() {
+  const card = document.getElementById('seat-restore-card');
+  const text = document.getElementById('seat-restore-text');
+  if (!card || !text) return;
+  const id = G.restoreIdentity || loadIdentity(G.roomCode);
+  if (!id) {
+    card.classList.add('hidden');
+    return;
+  }
+  G.restoreIdentity = id;
+  card.classList.remove('hidden');
+  text.textContent = `检测到你之前是 ${id.seat}号${id.name ? ' · ' + id.name : ''}`;
+}
+
+async function attemptRestore(id) {
+  if (!id) return;
+  G.isRestoring = true;
+  G.restoreIdentity = id;
+  G.roomCode = String(id.roomCode || '').trim().toUpperCase();
+  const seatError = document.getElementById('seat-error');
+  const landingError = document.getElementById('landing-error');
+  if (seatError) seatError.textContent = '';
+  if (landingError) landingError.textContent = '';
+  try {
+    const res = await fetch(`/api/room/${G.roomCode}`);
+    if (!res.ok) {
+      clearIdentity(G.roomCode);
+      G.restoreIdentity = null;
+      G.isRestoring = false;
+      renderSeatRestore();
+      renderLastIdentity();
+      showTransientError('房间已失效，请重新创建或加入房间');
+      return;
+    }
+    connectWS(G.roomCode, id.seat, id.name || '', id.secret, true);
+  } catch (e) {
+    G.isRestoring = false;
+    showTransientError('恢复失败，请稍后重试');
+  }
 }
 
 // ===== Render =====

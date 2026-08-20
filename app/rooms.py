@@ -58,9 +58,9 @@ class Room:
             except Exception:
                 pass
 
-    async def send_error(self, ws: WebSocket, text: str) -> None:
+    async def send_error(self, ws: WebSocket, text: str, code: str | None = None) -> None:
         try:
-            await ws.send_text(P.error(text))
+            await ws.send_text(P.error(text, code=code))
         except Exception:
             pass
 
@@ -77,26 +77,32 @@ class Room:
     async def join(self, ws: WebSocket, seat: int, name: str, secret: str) -> Optional[int]:
         """Try to place/reconnect a player. Returns seat on success, None on failure."""
         if seat < 1 or seat > 5:
-            await self.send_error(ws, "座位号无效（1-5）。")
+            await self.send_error(ws, "座位号无效（1-5）。", code="invalid_seat")
             return None
         existing = self.st.players.get(seat)
         if existing and existing.name:
             # seat taken — only allow if secret matches (reconnect)
             if secret and existing.secret == secret:
+                old_ws = existing.ws
                 existing.ws = ws
                 existing.online = True
                 self.connections[seat] = ws
+                if old_ws and old_ws is not ws:
+                    try:
+                        await old_ws.close()
+                    except Exception:
+                        pass
                 return seat
-            await self.send_error(ws, f"{seat}号座位已被人占用。")
+            await self.send_error(ws, f"{seat}号座位已被人占用。", code="seat_taken")
             return None
         # new sit
         if not name.strip():
-            await self.send_error(ws, "请输入昵称。")
+            await self.send_error(ws, "请输入昵称。", code="name_required")
             return None
         # check name not duplicate
         for p in self.st.players.values():
             if p.name == name.strip():
-                await self.send_error(ws, "该昵称已被使用，请换一个。")
+                await self.send_error(ws, "该昵称已被使用，请换一个。", code="duplicate_name")
                 return None
         p = Player(seat=seat, name=name.strip(), ws=ws, online=True,
                     secret=secrets.token_hex(8))
@@ -169,18 +175,19 @@ class Room:
                 async with self._lock:
                     await self._dispatch(ws, seat, data)
         except WebSocketDisconnect:
-            p = self.st.players.get(seat)
-            if p:
-                p.online = False
-                p.ws = None
-            self.connections.pop(seat, None)
-            await self.broadcast()
+            await self._mark_disconnected(ws, seat)
         except Exception:
-            p = self.st.players.get(seat)
-            if p:
-                p.online = False
-                p.ws = None
-            self.connections.pop(seat, None)
+            await self._mark_disconnected(ws, seat)
+
+    async def _mark_disconnected(self, ws: WebSocket, seat: int) -> None:
+        if self.connections.get(seat) is not ws:
+            return
+        p = self.st.players.get(seat)
+        if p:
+            p.online = False
+            p.ws = None
+        self.connections.pop(seat, None)
+        await self.broadcast()
 
     async def _dispatch(self, ws: WebSocket, seat: int, data: dict) -> None:
         t = data.get("type")
